@@ -6,7 +6,7 @@
 #include <freertos/task.h>
 #include <esp_rom_sys.h>
 
-#include "HardwareConfig.h"
+#include "HardwareConfig.hpp"
 
 //==============================================================
 // NOTES
