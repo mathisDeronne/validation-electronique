@@ -9,6 +9,7 @@ build/
 test/build/
 test/results/
 test/test/
+test/runner.exe
 
 #################################################
 # ESP-IDF (si présent)

@@ -31,6 +31,7 @@ int main()
             "g++ \"" + file + "\" "
                               "../mid/ble/blemanager.cpp "
                               "-I ../mid/ble "
+                              "../mid/i2c/I2CManager_MOCK.cpp "
                               "-I ../mid/i2c "
                               "-I ../app/include "
                               "-I ../config "
