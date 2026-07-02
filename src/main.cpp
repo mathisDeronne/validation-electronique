@@ -22,7 +22,7 @@ extern "C" void app_main(void)
     gpio_set_direction(HardwareConfig::IHM::BUZZER, GPIO_MODE_OUTPUT);
 
     //--------------------------------------------------------------
-    // ADC INIT
+    // ADC  INIT
     //--------------------------------------------------------------
     adc_oneshot_unit_handle_t adc_handle;
 
