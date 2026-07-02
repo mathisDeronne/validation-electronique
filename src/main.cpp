@@ -6,9 +6,9 @@
 #include <driver/gpio.h>
 #include <esp_adc/adc_oneshot.h>
 
-#include "HardwareConfig.h"
-#include "TempSensor.h"
-#include "buzzermelody.h"
+#include "HardwareConfig.hpp"
+#include "TempSensor.hpp"
+#include "buzzermelody.hpp"
 
 extern "C" void app_main(void)
 {
@@ -22,7 +22,7 @@ extern "C" void app_main(void)
     gpio_set_direction(HardwareConfig::IHM::BUZZER, GPIO_MODE_OUTPUT);
 
     //--------------------------------------------------------------
-    // ADC INIT
+    // ADC  INIT
     //--------------------------------------------------------------
     adc_oneshot_unit_handle_t adc_handle;
 
