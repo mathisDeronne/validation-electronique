@@ -6,6 +6,9 @@
 .piolibdeps/
 libdeps/
 build/
+test/build/
+test/results/
+test/test/
 
 #################################################
 # ESP-IDF (si présent)
