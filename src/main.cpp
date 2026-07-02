@@ -6,9 +6,9 @@
 #include <driver/gpio.h>
 #include <esp_adc/adc_oneshot.h>
 
-#include "HardwareConfig.h"
-#include "TempSensor.h"
-#include "buzzermelody.h"
+#include "HardwareConfig.hpp"
+#include "TempSensor.hpp"
+#include "buzzermelody.hpp"
 
 extern "C" void app_main(void)
 {
