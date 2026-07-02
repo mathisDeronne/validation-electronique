@@ -3,13 +3,12 @@
 #include <cstdint>
 #include <string>
 
-class BLEManager
+class blemanager
 {
 public:
     //--------------------------------------------------------------
     // Initialisation
     //--------------------------------------------------------------
-
     static bool init(const std::string &deviceName);
 
     static void start();
@@ -17,30 +16,32 @@ public:
     static void stop();
 
     //--------------------------------------------------------------
-    // Connexion
+    // Etat connexion
     //--------------------------------------------------------------
-
     static bool isConnected();
 
     static uint16_t connectedClients();
 
     //--------------------------------------------------------------
-    // Envoi de données
+    // Envoi
     //--------------------------------------------------------------
-
-    static bool notify(const uint8_t *data,
-                       size_t length);
+    static bool notify(const uint8_t *data, size_t length);
 
     static bool notify(const std::string &message);
 
     //--------------------------------------------------------------
     // Réception
     //--------------------------------------------------------------
-
     static bool available();
 
     static std::string read();
 
 private:
+    //--------------------------------------------------------------
+    // Etat interne
+    //--------------------------------------------------------------
     static bool initialized;
+    static bool advertising;
+    static bool connected;
+    static uint16_t clientCount;
 };
