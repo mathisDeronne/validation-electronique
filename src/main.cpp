@@ -1,88 +1,108 @@
-#include <Arduino.h>
-#include <NimBLEDevice.h>
+#include <stdio.h>
 
-#define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-#define RX_UUID "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define TX_UUID "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
-NimBLECharacteristic *txChar;
-bool deviceConnected = false;
+#include <driver/gpio.h>
+#include <esp_adc/adc_oneshot.h>
 
-class ServerCallbacks : public NimBLEServerCallbacks
+#include "HardwareConfig.h"
+#include "TempSensor.h"
+#include "buzzermelody.h"
+
+extern "C" void app_main(void)
 {
-    void onConnect(NimBLEServer *pServer)
+    printf("\n=== ESP32 HARDWARE TEST ===\n");
+
+    //--------------------------------------------------------------
+    // GPIO INIT
+    //--------------------------------------------------------------
+    gpio_set_direction(HardwareConfig::IHM::LED_GREEN, GPIO_MODE_OUTPUT);
+    gpio_set_direction(HardwareConfig::IHM::LED_RED, GPIO_MODE_OUTPUT);
+    gpio_set_direction(HardwareConfig::IHM::BUZZER, GPIO_MODE_OUTPUT);
+
+    //--------------------------------------------------------------
+    // ADC INIT
+    //--------------------------------------------------------------
+    adc_oneshot_unit_handle_t adc_handle;
+
+    adc_oneshot_unit_init_cfg_t init_cfg = {};
+    init_cfg.unit_id = ADC_UNIT_1;
+    init_cfg.ulp_mode = ADC_ULP_MODE_DISABLE;
+    init_cfg.clk_src = ADC_RTC_CLK_SRC_DEFAULT;
+
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_cfg, &adc_handle));
+
+    adc_oneshot_chan_cfg_t chan_cfg = {};
+    chan_cfg.bitwidth = ADC_BITWIDTH_12;
+    chan_cfg.atten = ADC_ATTEN_DB_12;
+
+    // GPIO33 = ADC1_CHANNEL_5
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle,
+                                               ADC_CHANNEL_5,
+                                               &chan_cfg));
+
+    // GPIO34 = ADC1_CHANNEL_6
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle,
+                                               ADC_CHANNEL_6,
+                                               &chan_cfg));
+
+    //--------------------------------------------------------------
+    // LOOP
+    //--------------------------------------------------------------
+    while (true)
     {
-        deviceConnected = true;
-        Serial.println("Client connecté");
-    }
+        //=============================
+        // LED TEST
+        //=============================
+        gpio_set_level(HardwareConfig::IHM::LED_GREEN, 1);
+        vTaskDelay(pdMS_TO_TICKS(300));
+        gpio_set_level(HardwareConfig::IHM::LED_GREEN, 0);
 
-    void onDisconnect(NimBLEServer *pServer)
-    {
-        deviceConnected = false;
-        Serial.println("Client déconnecté");
-        NimBLEDevice::getAdvertising()->start();
-    }
-};
+        gpio_set_level(HardwareConfig::IHM::LED_RED, 1);
+        vTaskDelay(pdMS_TO_TICKS(300));
+        gpio_set_level(HardwareConfig::IHM::LED_RED, 0);
 
-class RxCallbacks : public NimBLECharacteristicCallbacks
-{
-    void onWrite(NimBLECharacteristic *pCharacteristic)
-    {
-        std::string value = pCharacteristic->getValue();
+        //=============================
+        // TEMPERATURE
+        //=============================
+        int adc1 = 0;
+        int adc2 = 0;
 
-        Serial.print("Reçu BLE: ");
-        Serial.println(value.c_str());
-    }
-};
+        ESP_ERROR_CHECK(adc_oneshot_read(adc_handle,
+                                         ADC_CHANNEL_5,
+                                         &adc1));
 
-void setup()
-{
-    Serial.begin(115200);
-    delay(1000);
+        ESP_ERROR_CHECK(adc_oneshot_read(adc_handle,
+                                         ADC_CHANNEL_6,
+                                         &adc2));
 
-    Serial.println("Démarrage BLE NimBLE...");
+        float temp1 = adcToTemperature(adc1);
+        float temp2 = adcToTemperature(adc2);
 
-    NimBLEDevice::init("ESP32-PICO-D4");
+        printf("\n-----------------------------\n");
+        printf("NTC1 : %4d -> %.2f °C\n", adc1, temp1);
+        printf("NTC2 : %4d -> %.2f °C\n", adc2, temp2);
+        printf("-----------------------------\n");
 
-    NimBLEServer *server = NimBLEDevice::createServer();
-    server->setCallbacks(new ServerCallbacks());
+        //=============================
+        // TEST DES 4 MELODIES
+        //=============================
 
-    NimBLEService *service = server->createService(SERVICE_UUID);
+        printf("Melodie 1 : Triple Beep\n");
+        playAlarm(AlarmSound::TripleBeep);
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
-    // TX (ESP32 -> téléphone)
-    txChar = service->createCharacteristic(
-        TX_UUID,
-        NIMBLE_PROPERTY::NOTIFY);
+        printf("Melodie 2 : Siren\n");
+        playAlarm(AlarmSound::Siren);
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
-    // RX (téléphone -> ESP32)
-    NimBLECharacteristic *rxChar = service->createCharacteristic(
-        RX_UUID,
-        NIMBLE_PROPERTY::WRITE);
+        printf("Melodie 3 : Warning\n");
+        playAlarm(AlarmSound::Warning);
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
-    rxChar->setCallbacks(new RxCallbacks());
-
-    service->start();
-
-    NimBLEAdvertising *advertising = NimBLEDevice::getAdvertising();
-    advertising->addServiceUUID(SERVICE_UUID);
-    advertising->start();
-
-    Serial.println("BLE prêt !");
-}
-
-void loop()
-{
-    if (deviceConnected)
-    {
-        static int counter = 0;
-
-        String msg = "Hello ESP32 #" + String(counter++);
-
-        txChar->setValue(msg.c_str());
-        txChar->notify();
-
-        Serial.println("Envoyé: " + msg);
-
-        delay(2000);
+        printf("Melodie 4 : Emergency\n");
+        playAlarm(AlarmSound::Emergency);
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
