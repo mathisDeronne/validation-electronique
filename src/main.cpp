@@ -9,6 +9,8 @@
 #include "HardwareConfig.hpp"
 #include "TempSensor.hpp"
 #include "buzzermelody.hpp"
+#include "SPIManager.hpp"
+#include "esp_log.h"
 
 extern "C" void app_main(void)
 {
@@ -48,6 +50,20 @@ extern "C" void app_main(void)
                                                &chan_cfg));
 
     //--------------------------------------------------------------
+    // TMP126 SPI INIT
+    //--------------------------------------------------------------
+    SPIManager spi;
+
+    if (spi.init() != ESP_OK)
+    {
+        ESP_LOGE("TMP126", "Erreur initialisation SPI");
+    }
+    else
+    {
+        ESP_LOGI("TMP126", "SPI initialise");
+    }
+
+    //--------------------------------------------------------------
     // LOOP
     //--------------------------------------------------------------
     while (true)
@@ -84,6 +100,25 @@ extern "C" void app_main(void)
         printf("NTC1 : %4d -> %.2f °C\n", adc1, temp1);
         printf("NTC2 : %4d -> %.2f °C\n", adc2, temp2);
         printf("-----------------------------\n");
+
+        //=============================
+        // TMP126 SPI
+        //=============================
+
+        float spiTemp = 0.0f;
+
+        if (spi.readTemperature(spiTemp) == ESP_OK)
+        {
+            printf("-----------------------------\n");
+            printf("TMP126 : %.2f °C\n", spiTemp);
+            printf("-----------------------------\n");
+        }
+        else
+        {
+            printf("-----------------------------\n");
+            printf("TMP126 : Erreur SPI\n");
+            printf("-----------------------------\n");
+        }
 
         //=============================
         // TEST DES 4 MELODIES
