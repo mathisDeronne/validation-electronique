@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 - Ventec Control Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e4e4e7; min-height: 100vh; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 24px; color: #fff; margin-bottom: 8px; }
+        .header .subtitle { color: #71717a; font-size: 14px; }
+        .status-bar { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 30px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
+        .status-dot.connected { background: #22c55e; box-shadow: 0 0 8px #22c55e88; }
+        .status-text { font-size: 14px; color: #a1a1aa; }
+        .connect-btn { background: #3b82f6; color: white; border: none; padding: 12px 32px; border-radius: 8px; font-size: 16px; cursor: pointer; display: block; margin: 0 auto 30px; transition: background 0.2s; }
+        .connect-btn:hover { background: #2563eb; }
+        .connect-btn:disabled { background: #374151; cursor: not-allowed; }
+        .connect-btn.connected { background: #22c55e; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 800px; margin: 0 auto; }
+        .card { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 20px; }
+        .card h2 { font-size: 14px; color: #71717a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+        .led-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .led-label { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+        .led-indicator { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #333; transition: all 0.3s; }
+        .led-indicator.green { border-color: #166534; }
+        .led-indicator.green.on { background: #22c55e; box-shadow: 0 0 12px #22c55e88; border-color: #22c55e; }
+        .led-indicator.red { border-color: #7f1d1d; }
+        .led-indicator.red.on { background: #ef4444; box-shadow: 0 0 12px #ef444488; border-color: #ef4444; }
+        .toggle { width: 48px; height: 26px; background: #374151; border-radius: 13px; cursor: pointer; position: relative; transition: background 0.3s; border: none; }
+        .toggle.on { background: #22c55e; }
+        .toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.3s; }
+        .toggle.on::after { transform: translateX(22px); }
+        .alarm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .alarm-btn { padding: 12px; border-radius: 8px; border: 1px solid #374151; background: #1f1f23; color: #e4e4e7; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .alarm-btn:hover { background: #27272a; border-color: #f59e0b; color: #f59e0b; }
+        .alarm-btn:active { transform: scale(0.96); }
+        .temp-card { text-align: center; padding: 16px; background: #1f1f23; border-radius: 8px; margin-bottom: 10px; }
+        .temp-value { font-size: 32px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+        .temp-value.warning { color: #f59e0b; }
+        .temp-value.critical { color: #ef4444; }
+        .temp-value.error { color: #ef4444; }
+        .temp-label { font-size: 12px; color: #71717a; margin-top: 4px; }
+        .log-card { grid-column: 1 / -1; }
+        .log-area { background: #0f0f12; border: 1px solid #27272a; border-radius: 8px; padding: 12px; height: 180px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; color: #a1a1aa; }
+        .log-area div { margin-bottom: 2px; }
+        .log-area .rx { color: #22c55e; }
+        .log-area .tx { color: #3b82f6; }
+        .log-area .err { color: #ef4444; }
+        .log-area .info { color: #71717a; }
+        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>🔧 Ventec Control Panel</h1>
+    <p class="subtitle">ESP32-PICO-D4 — Groupe 5</p>
+</div>
+
+<div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Déconnecté</span>
+</div>
+
+<button class="connect-btn" id="connectBtn" onclick="toggleConnection()">Connecter Bluetooth</button>
+
+<div class="grid">
+    <div class="card">
+        <h2>💡 Contrôle LED</h2>
+        <div class="led-row">
+            <div class="led-label"><div class="led-indicator green" id="ledGreenDot"></div><span>LED Verte</span></div>
+            <button class="toggle" id="toggleGreen" onclick="toggleLed('GREEN')"></button>
+        </div>
+        <div class="led-row">
+            <div class="led-label"><div class="led-indicator red" id="ledRedDot"></div><span>LED Rouge</span></div>
+            <button class="toggle" id="toggleRed" onclick="toggleLed('RED')"></button>
+        </div>
+        <div class="led-row">
+            <div class="led-label"><div class="led-indicator" id="buzzerDot" style="border-color:#854d0e;"></div><span>Buzzer</span></div>
+            <button class="toggle" id="toggleBuzzer" onclick="toggleBuzzer()"></button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🔊 Alarmes</h2>
+        <div class="alarm-grid">
+            <button class="alarm-btn" onclick="sendCmd('ALARM_1')">🔔 Triple Beep</button>
+            <button class="alarm-btn" onclick="sendCmd('ALARM_2')">🚨 Sirène</button>
+            <button class="alarm-btn" onclick="sendCmd('ALARM_3')">⚠️ Warning</button>
+            <button class="alarm-btn" onclick="sendCmd('ALARM_4')">🆘 Urgence</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🌡️ Températures</h2>
+        <div class="temp-card"><div class="temp-value" id="tempNtc1">--.-</div><div class="temp-label">NTC1 (GPIO25) — PCB Zone 1</div></div>
+        <div class="temp-card"><div class="temp-value" id="tempNtc2">--.-</div><div class="temp-label">NTC2 (GPIO26) — PCB Zone 2</div></div>
+        <div class="temp-card"><div class="temp-value" id="tempTmp126">--.-</div><div class="temp-label">TMP126 (SPI) — Ambiante</div></div>
+    </div>
+
+    <div class="card">
+        <h2>⌨️ Commande manuelle</h2>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <input type="text" id="cmdInput" placeholder="Ex: LED_GREEN_ON" style="flex:1; padding:10px; border-radius:8px; border:1px solid #374151; background:#0f0f12; color:#fff; font-size:14px; outline:none;">
+            <button onclick="sendManualCmd()" style="padding:10px 20px; border-radius:8px; background:#3b82f6; color:white; border:none; cursor:pointer; font-size:14px;">Envoyer</button>
+        </div>
+        <div style="font-size:12px; color:#52525b;">Commandes : LED_GREEN_ON/OFF, LED_RED_ON/OFF, BUZZER_ON/OFF, ALARM_1..4</div>
+    </div>
+
+    <div class="card log-card">
+        <h2>📋 Logs</h2>
+        <div class="log-area" id="logArea"></div>
+    </div>
+</div>
+
+<script>
+    const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const RX_UUID      = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+    const TX_UUID      = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+    let device = null;
+    let server = null;
+    let rxCharacteristic = null;
+    let txCharacteristic = null;
+    let isConnected = false;
+
+    let ledGreenOn = false;
+    let ledRedOn = false;
+    let buzzerOn = false;
+
+    async function toggleConnection() {
+        if (isConnected) disconnect();
+        else await connect();
+    }
+
+    async function connect() {
+        const btn = document.getElementById('connectBtn');
+        btn.disabled = true;
+
+        try {
+            if (!navigator.bluetooth) {
+                throw new Error('Web Bluetooth non disponible. Utilise Chrome ou Edge.');
+            }
+
+            addLog('info', 'Recherche Bluetooth...');
+
+            device = await navigator.bluetooth.requestDevice({
+                filters: [
+                    { name: 'Groupe 5' },
+                    { name: 'groupe 5' }
+                ],
+                optionalServices: [SERVICE_UUID]
+            });
+
+            addLog('info', `Device trouvé : ${device.name || 'sans nom'}`);
+            device.addEventListener('gattserverdisconnected', onDisconnected);
+
+            server = await device.gatt.connect();
+            addLog('info', 'GATT connecté');
+
+            await sleep(500);
+
+            if (!device.gatt.connected) {
+                throw new Error('ESP32 déconnecté juste après la connexion GATT');
+            }
+
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            addLog('info', 'Service UART trouvé');
+
+            rxCharacteristic = await service.getCharacteristic(RX_UUID);
+            addLog('info', 'Caractéristique RX prête');
+
+            txCharacteristic = await service.getCharacteristic(TX_UUID);
+            await txCharacteristic.startNotifications();
+            txCharacteristic.addEventListener('characteristicvaluechanged', onDataReceived);
+            addLog('info', 'Notifications TX activées');
+
+            setConnected(true);
+            addLog('rx', '✓ Connecté à ' + (device.name || 'ESP32'));
+        } catch (err) {
+            addLog('err', 'Erreur : ' + err.message);
+            disconnect(false);
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function disconnect(showLog = true) {
+        try {
+            if (txCharacteristic) {
+                txCharacteristic.removeEventListener('characteristicvaluechanged', onDataReceived);
+            }
+            if (device && device.gatt && device.gatt.connected) {
+                device.gatt.disconnect();
+            }
+        } catch (e) {
+            addLog('err', 'Erreur déconnexion : ' + e.message);
+        }
+
+        rxCharacteristic = null;
+        txCharacteristic = null;
+        server = null;
+        setConnected(false);
+
+        if (showLog) addLog('info', 'Déconnecté manuellement');
+    }
+
+    function onDisconnected() {
+        rxCharacteristic = null;
+        txCharacteristic = null;
+        server = null;
+        setConnected(false);
+        addLog('err', 'Déconnecté');
+    }
+
+    function setConnected(state) {
+        isConnected = state;
+        document.getElementById('statusDot').className = 'status-dot' + (state ? ' connected' : '');
+        document.getElementById('statusText').textContent = state ? 'Connecté' : 'Déconnecté';
+        const btn = document.getElementById('connectBtn');
+        btn.textContent = state ? 'Déconnecter' : 'Connecter Bluetooth';
+        btn.className = 'connect-btn' + (state ? ' connected' : '');
+    }
+
+    async function sendCmd(cmd) {
+        if (!isConnected || !rxCharacteristic) {
+            addLog('err', 'Non connecté');
+            return;
+        }
+
+        try {
+            const encoder = new TextEncoder();
+            await rxCharacteristic.writeValueWithoutResponse(encoder.encode(cmd));
+            addLog('tx', '→ ' + cmd);
+        } catch (err) {
+            try {
+                const encoder = new TextEncoder();
+                await rxCharacteristic.writeValue(encoder.encode(cmd));
+                addLog('tx', '→ ' + cmd);
+            } catch (err2) {
+                addLog('err', 'Envoi échoué : ' + err2.message);
+            }
+        }
+    }
+
+    function sendManualCmd() {
+        const input = document.getElementById('cmdInput');
+        const cmd = input.value.trim();
+        if (cmd) {
+            sendCmd(cmd);
+            input.value = '';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('cmdInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendManualCmd();
+        });
+    });
+
+    function onDataReceived(event) {
+        const decoder = new TextDecoder();
+        const data = decoder.decode(event.target.value);
+        addLog('rx', '← ' + data);
+
+        const parts = data.split(';');
+        parts.forEach(part => {
+            const [key, value] = part.split('=');
+            if (!key || value === undefined) return;
+
+            let elementId = null;
+            if (key === 'NTC1' || key === 'TEMP1') elementId = 'tempNtc1';
+            if (key === 'NTC2' || key === 'TEMP2') elementId = 'tempNtc2';
+            if (key === 'TMP126') elementId = 'tempTmp126';
+            if (!elementId) return;
+
+            const el = document.getElementById(elementId);
+
+            if (value === 'ERR') {
+                el.textContent = 'ERR';
+                el.className = 'temp-value error';
+                return;
+            }
+
+            const temp = parseFloat(value);
+            if (isNaN(temp)) return;
+
+            el.textContent = temp.toFixed(1) + '°C';
+            el.className = 'temp-value';
+            if (temp >= 75) el.className += ' critical';
+            else if (temp >= 60) el.className += ' warning';
+        });
+    }
+
+    function toggleLed(color) {
+        if (color === 'GREEN') {
+            ledGreenOn = !ledGreenOn;
+            sendCmd(ledGreenOn ? 'LED_GREEN_ON' : 'LED_GREEN_OFF');
+            document.getElementById('toggleGreen').className = 'toggle' + (ledGreenOn ? ' on' : '');
+            document.getElementById('ledGreenDot').className = 'led-indicator green' + (ledGreenOn ? ' on' : '');
+        } else {
+            ledRedOn = !ledRedOn;
+            sendCmd(ledRedOn ? 'LED_RED_ON' : 'LED_RED_OFF');
+            document.getElementById('toggleRed').className = 'toggle' + (ledRedOn ? ' on' : '');
+            document.getElementById('ledRedDot').className = 'led-indicator red' + (ledRedOn ? ' on' : '');
+        }
+    }
+
+    function toggleBuzzer() {
+        buzzerOn = !buzzerOn;
+        sendCmd(buzzerOn ? 'BUZZER_ON' : 'BUZZER_OFF');
+        document.getElementById('toggleBuzzer').className = 'toggle' + (buzzerOn ? ' on' : '');
+        const dot = document.getElementById('buzzerDot');
+        dot.style.background = buzzerOn ? '#f59e0b' : 'transparent';
+        dot.style.boxShadow = buzzerOn ? '0 0 12px #f59e0b88' : 'none';
+    }
+
+    function addLog(type, message) {
+        const area = document.getElementById('logArea');
+        const time = new Date().toLocaleTimeString('fr-FR');
+        const div = document.createElement('div');
+        div.className = type;
+        div.textContent = `[${time}] ${message}`;
+        area.appendChild(div);
+        area.scrollTop = area.scrollHeight;
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+</script>
+</body>
+</html>
