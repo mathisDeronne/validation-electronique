@@ -1,7 +1,7 @@
 // ============================================================================
 // FILE: blemanager.cpp
 // PURPOSE: Implémentation BLE avec la librairie Arduino ESP32 BLE
-//          Compatible blemanager.hpp SANS MODIFICATION
+//          Compatible blemanager.hpp SANS MODIFICATION coucou
 // ============================================================================
 
 #include "blemanager.hpp"
