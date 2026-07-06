@@ -123,7 +123,7 @@ extern "C" void app_main(void)
         //=============================
         // TEST DES 4 MELODIES
         //=============================
-
+        /*
         printf("Melodie 1 : Triple Beep\n");
         playAlarm(AlarmSound::TripleBeep);
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -139,5 +139,6 @@ extern "C" void app_main(void)
         printf("Melodie 4 : Emergency\n");
         playAlarm(AlarmSound::Emergency);
         vTaskDelay(pdMS_TO_TICKS(2000));
+        */
     }
 }
