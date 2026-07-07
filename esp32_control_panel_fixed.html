@@ -94,8 +94,8 @@
     <div class="card">
         <h2>💡 Contrôle LED</h2>
         <div class="led-row">
-            <div class="led-label"><div class="led-indicator green" id="ledGreenDot"></div><span>LED Verte</span></div>
-            <button class="toggle" id="toggleGreen" onclick="toggleLed('GREEN')"></button>
+            <div class="led-label"><div class="led-indicator green on" id="ledGreenDot"></div><span>LED Verte (auto)</span></div>
+            <span style="font-size:11px; color:#52525b;">Toujours active</span>
         </div>
         <div class="led-row">
             <div class="led-label"><div class="led-indicator red" id="ledRedDot"></div><span>LED Rouge</span></div>
@@ -198,7 +198,7 @@
     let device = null, server = null;
     let rxCharacteristic = null, txCharacteristic = null;
     let isConnected = false;
-    let ledGreenOn = false, ledRedOn = false;
+    let ledRedOn = false;
 
     async function toggleConnection() {
         if (isConnected) disconnect();
@@ -373,17 +373,10 @@
     }
 
     function toggleLed(color) {
-        if (color === 'GREEN') {
-            ledGreenOn = !ledGreenOn;
-            sendCmd(ledGreenOn ? 'LED_GREEN_ON' : 'LED_GREEN_OFF');
-            document.getElementById('toggleGreen').className = 'toggle' + (ledGreenOn ? ' on' : '');
-            document.getElementById('ledGreenDot').className = 'led-indicator green' + (ledGreenOn ? ' on' : '');
-        } else {
-            ledRedOn = !ledRedOn;
-            sendCmd(ledRedOn ? 'LED_RED_ON' : 'LED_RED_OFF');
-            document.getElementById('toggleRed').className = 'toggle' + (ledRedOn ? ' on' : '');
-            document.getElementById('ledRedDot').className = 'led-indicator red' + (ledRedOn ? ' on' : '');
-        }
+        ledRedOn = !ledRedOn;
+        sendCmd(ledRedOn ? 'LED_RED_ON' : 'LED_RED_OFF');
+        document.getElementById('toggleRed').className = 'toggle' + (ledRedOn ? ' on' : '');
+        document.getElementById('ledRedDot').className = 'led-indicator red' + (ledRedOn ? ' on' : '');
     }
 
     // === CONFIGURATION SEUILS (EXF-23) ===

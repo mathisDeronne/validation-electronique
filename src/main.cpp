@@ -106,6 +106,7 @@ enum class AlarmLevel : uint8_t
 static AlarmLevel s_alarmLevel     = AlarmLevel::NONE;
 static AlarmLevel s_prevAlarmLevel = AlarmLevel::NONE;
 static bool       s_bleWasConnected = false;
+static bool       s_manualRedLed    = false;   // LED rouge contrôlée manuellement
 
 // ============================================================================
 // PROTOTYPES
@@ -250,8 +251,8 @@ extern "C" void app_main(void)
 
             if      (cmd == "LED_GREEN_ON")   gpio_set_level(HardwareConfig::IHM::LED_GREEN, 1);
             else if (cmd == "LED_GREEN_OFF")  gpio_set_level(HardwareConfig::IHM::LED_GREEN, 0);
-            else if (cmd == "LED_RED_ON")     gpio_set_level(HardwareConfig::IHM::LED_RED, 1);
-            else if (cmd == "LED_RED_OFF")    gpio_set_level(HardwareConfig::IHM::LED_RED, 0);
+            else if (cmd == "LED_RED_ON")   { gpio_set_level(HardwareConfig::IHM::LED_RED, 1); s_manualRedLed = true;  }
+            else if (cmd == "LED_RED_OFF")  { gpio_set_level(HardwareConfig::IHM::LED_RED, 0); s_manualRedLed = false; }
             else if (cmd == "BUZZER_ON")      gpio_set_level(HardwareConfig::IHM::BUZZER, 1);
             else if (cmd == "BUZZER_OFF")     gpio_set_level(HardwareConfig::IHM::BUZZER, 0);
             else if (cmd == "ALARM_1")        playAlarm(AlarmSound::TripleBeep);
@@ -381,35 +382,31 @@ extern "C" void app_main(void)
         // ==============================================================
         if (s_alarmLevel == AlarmLevel::CRITICAL)
         {
-            // Critique : verte OFF, rouge fixe ON, buzzer alarme
+            // Critique : verte OFF, rouge fixe ON
             gpio_set_level(HardwareConfig::IHM::LED_GREEN, 0);
             gpio_set_level(HardwareConfig::IHM::LED_RED, 1);
 
-            // Jouer l'alarme sonore à chaque passage en critique
-            // (playAlarm gère le PWM du buzzer passif)
-            if (s_prevAlarmLevel != AlarmLevel::CRITICAL)
-            {
-                playAlarm(AlarmSound::Emergency);
-            }
+            // Buzzer continu : rejoue dès que le précédent est fini
+            playAlarm(AlarmSound::Emergency);
         }
         else if (s_alarmLevel == AlarmLevel::WARNING)
         {
-            // Warning : verte ON, rouge clignotante, beep au changement
+            // Warning : verte ON, rouge clignotante
             gpio_set_level(HardwareConfig::IHM::LED_GREEN, 1);
             warnLedState = !warnLedState;
             gpio_set_level(HardwareConfig::IHM::LED_RED, warnLedState ? 1 : 0);
 
-            if (s_prevAlarmLevel != AlarmLevel::WARNING)
-            {
-                playAlarm(AlarmSound::Warning);
-            }
+            // Buzzer warning continu
+            playAlarm(AlarmSound::Warning);
         }
         else
         {
-            // Normal : verte ON, rouge OFF, buzzer OFF
+            // Normal : verte ON, buzzer OFF
             gpio_set_level(HardwareConfig::IHM::LED_GREEN, 1);
-            gpio_set_level(HardwareConfig::IHM::LED_RED, 0);
             gpio_set_level(HardwareConfig::IHM::BUZZER, 0);
+
+            // LED rouge : respecter le mode manuel du technicien
+            gpio_set_level(HardwareConfig::IHM::LED_RED, s_manualRedLed ? 1 : 0);
         }
 
         // ==============================================================
