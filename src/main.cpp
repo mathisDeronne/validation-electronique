@@ -328,19 +328,27 @@ extern "C" void app_main(void)
         //----------------------------------------------------------
         if (blemanager::isConnected() && (loopCounter % 5 == 0))
         {
-            char msg[128];
+            char msg[256];
+            int pos = 0;
 
+            // Températures NTC
+            pos += snprintf(msg + pos, sizeof(msg) - pos,
+                            "NTC1=%.2f;NTC2=%.2f",
+                            temp1, temp2);
+
+            // TMP126 SPI
             if (tmp126Ok)
             {
-                snprintf(msg, sizeof(msg),
-                         "NTC1=%.2f;NTC2=%.2f;TMP126=%.2f",
-                         temp1, temp2, spiTemp);
+                pos += snprintf(msg + pos, sizeof(msg) - pos,
+                                ";TMP126=%.2f", spiTemp);
             }
-            else
+
+            // INA237 I2C
+            if (ina_ok)
             {
-                snprintf(msg, sizeof(msg),
-                         "NTC1=%.2f;NTC2=%.2f",
-                         temp1, temp2);
+                pos += snprintf(msg + pos, sizeof(msg) - pos,
+                                ";VBUS=%.3f;CURRENT=%.3f;POWER=%.3f",
+                                inaBusVoltage, inaCurrent, inaPower);
             }
 
             blemanager::notify(std::string(msg));
