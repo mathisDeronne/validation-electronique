@@ -381,18 +381,28 @@ extern "C" void app_main(void)
         // ==============================================================
         if (s_alarmLevel == AlarmLevel::CRITICAL)
         {
-            // Critique : verte OFF, rouge fixe ON, buzzer ON
+            // Critique : verte OFF, rouge fixe ON, buzzer alarme
             gpio_set_level(HardwareConfig::IHM::LED_GREEN, 0);
             gpio_set_level(HardwareConfig::IHM::LED_RED, 1);
-            gpio_set_level(HardwareConfig::IHM::BUZZER, 1);
+
+            // Jouer l'alarme sonore à chaque passage en critique
+            // (playAlarm gère le PWM du buzzer passif)
+            if (s_prevAlarmLevel != AlarmLevel::CRITICAL)
+            {
+                playAlarm(AlarmSound::Emergency);
+            }
         }
         else if (s_alarmLevel == AlarmLevel::WARNING)
         {
-            // Warning : verte ON, rouge clignotante, buzzer OFF
+            // Warning : verte ON, rouge clignotante, beep au changement
             gpio_set_level(HardwareConfig::IHM::LED_GREEN, 1);
             warnLedState = !warnLedState;
             gpio_set_level(HardwareConfig::IHM::LED_RED, warnLedState ? 1 : 0);
-            gpio_set_level(HardwareConfig::IHM::BUZZER, 0);
+
+            if (s_prevAlarmLevel != AlarmLevel::WARNING)
+            {
+                playAlarm(AlarmSound::Warning);
+            }
         }
         else
         {
