@@ -41,7 +41,16 @@
         .temp-value.warning { color: #f59e0b; }
         .temp-value.critical { color: #ef4444; }
         .temp-value.error { color: #ef4444; }
-        .temp-label { font-size: 12px; color: #71717a; margin-top: 4px; }
+
+        /* INA237 styles */
+        .ina-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .ina-cell { text-align: center; padding: 14px 10px; background: #1f1f23; border-radius: 8px; }
+        .ina-value { font-size: 24px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+        .ina-unit { font-size: 14px; color: #71717a; font-weight: 400; }
+        .ina-label { font-size: 11px; color: #52525b; margin-top: 4px; }
+        .ina-cell.highlight .ina-value { color: #818cf8; }
+        .ina-cell.power .ina-value { color: #f59e0b; }
+
         .log-card { grid-column: 1 / -1; }
         .log-area { background: #0f0f12; border: 1px solid #27272a; border-radius: 8px; padding: 12px; height: 180px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; color: #a1a1aa; }
         .log-area div { margin-bottom: 2px; }
@@ -76,10 +85,6 @@
             <div class="led-label"><div class="led-indicator red" id="ledRedDot"></div><span>LED Rouge</span></div>
             <button class="toggle" id="toggleRed" onclick="toggleLed('RED')"></button>
         </div>
-        <div class="led-row">
-            <div class="led-label"><div class="led-indicator" id="buzzerDot" style="border-color:#854d0e;"></div><span>Buzzer</span></div>
-            <button class="toggle" id="toggleBuzzer" onclick="toggleBuzzer()"></button>
-        </div>
     </div>
 
     <div class="card">
@@ -100,12 +105,38 @@
     </div>
 
     <div class="card">
+        <h2>⚡ INA237 — Moniteur de puissance</h2>
+        <div class="ina-grid">
+            <div class="ina-cell">
+                <div class="ina-value" id="inaVbus">--.-<span class="ina-unit"> V</span></div>
+                <div class="ina-label">Tension Bus</div>
+            </div>
+            <div class="ina-cell">
+                <div class="ina-value" id="inaVshunt">--.-<span class="ina-unit"> mV</span></div>
+                <div class="ina-label">Tension Shunt</div>
+            </div>
+            <div class="ina-cell highlight">
+                <div class="ina-value" id="inaCurrent">--.-<span class="ina-unit"> A</span></div>
+                <div class="ina-label">Courant</div>
+            </div>
+            <div class="ina-cell power">
+                <div class="ina-value" id="inaPower">--.-<span class="ina-unit"> W</span></div>
+                <div class="ina-label">Puissance</div>
+            </div>
+        </div>
+        <div class="ina-cell" style="margin-top:10px;">
+            <div class="ina-value" id="inaDieTemp">--.-<span class="ina-unit"> °C</span></div>
+            <div class="ina-label">Température Die INA237</div>
+        </div>
+    </div>
+
+    <div class="card log-card">
         <h2>⌨️ Commande manuelle</h2>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
             <input type="text" id="cmdInput" placeholder="Ex: LED_GREEN_ON" style="flex:1; padding:10px; border-radius:8px; border:1px solid #374151; background:#0f0f12; color:#fff; font-size:14px; outline:none;">
             <button onclick="sendManualCmd()" style="padding:10px 20px; border-radius:8px; background:#3b82f6; color:white; border:none; cursor:pointer; font-size:14px;">Envoyer</button>
         </div>
-        <div style="font-size:12px; color:#52525b;">Commandes : LED_GREEN_ON/OFF, LED_RED_ON/OFF, BUZZER_ON/OFF, ALARM_1..4</div>
+        <div style="font-size:12px; color:#52525b;">Commandes : LED_GREEN_ON/OFF, LED_RED_ON/OFF, ALARM_1..4</div>
     </div>
 
     <div class="card log-card">
@@ -127,7 +158,6 @@
 
     let ledGreenOn = false;
     let ledRedOn = false;
-    let buzzerOn = false;
 
     async function toggleConnection() {
         if (isConnected) disconnect();
@@ -269,27 +299,70 @@
             const [key, value] = part.split('=');
             if (!key || value === undefined) return;
 
-            let elementId = null;
-            if (key === 'NTC1' || key === 'TEMP1') elementId = 'tempNtc1';
-            if (key === 'NTC2' || key === 'TEMP2') elementId = 'tempNtc2';
-            if (key === 'TMP126') elementId = 'tempTmp126';
-            if (!elementId) return;
+            // --- Températures ---
+            let tempElementId = null;
+            if (key === 'NTC1' || key === 'TEMP1') tempElementId = 'tempNtc1';
+            if (key === 'NTC2' || key === 'TEMP2') tempElementId = 'tempNtc2';
+            if (key === 'TMP126') tempElementId = 'tempTmp126';
 
-            const el = document.getElementById(elementId);
-
-            if (value === 'ERR') {
-                el.textContent = 'ERR';
-                el.className = 'temp-value error';
+            if (tempElementId) {
+                const el = document.getElementById(tempElementId);
+                if (value === 'ERR') {
+                    el.textContent = 'ERR';
+                    el.className = 'temp-value error';
+                    return;
+                }
+                const temp = parseFloat(value);
+                if (isNaN(temp)) return;
+                el.textContent = temp.toFixed(1) + '°C';
+                el.className = 'temp-value';
+                if (temp >= 75) el.className += ' critical';
+                else if (temp >= 60) el.className += ' warning';
                 return;
             }
 
-            const temp = parseFloat(value);
-            if (isNaN(temp)) return;
+            // --- INA237 ---
+            let inaElementId = null;
+            let inaUnit = '';
+            let inaDecimals = 2;
 
-            el.textContent = temp.toFixed(1) + '°C';
-            el.className = 'temp-value';
-            if (temp >= 75) el.className += ' critical';
-            else if (temp >= 60) el.className += ' warning';
+            if (key === 'VBUS') {
+                inaElementId = 'inaVbus';
+                inaUnit = ' V';
+                inaDecimals = 2;
+            } else if (key === 'VSHUNT') {
+                inaElementId = 'inaVshunt';
+                inaUnit = ' mV';
+                inaDecimals = 3;
+            } else if (key === 'CURRENT') {
+                inaElementId = 'inaCurrent';
+                inaUnit = ' A';
+                inaDecimals = 3;
+            } else if (key === 'POWER') {
+                inaElementId = 'inaPower';
+                inaUnit = ' W';
+                inaDecimals = 3;
+            } else if (key === 'DIETEMP') {
+                inaElementId = 'inaDieTemp';
+                inaUnit = ' °C';
+                inaDecimals = 1;
+            }
+
+            if (inaElementId) {
+                const el = document.getElementById(inaElementId);
+                if (value === 'ERR') {
+                    el.innerHTML = 'ERR';
+                    return;
+                }
+                const val = parseFloat(value);
+                if (isNaN(val)) return;
+
+                // Pour VSHUNT, convertir V → mV pour l'affichage
+                let displayVal = val;
+                if (key === 'VSHUNT') displayVal = val * 1000;
+
+                el.innerHTML = displayVal.toFixed(inaDecimals) + '<span class="ina-unit">' + inaUnit + '</span>';
+            }
         });
     }
 
@@ -305,15 +378,6 @@
             document.getElementById('toggleRed').className = 'toggle' + (ledRedOn ? ' on' : '');
             document.getElementById('ledRedDot').className = 'led-indicator red' + (ledRedOn ? ' on' : '');
         }
-    }
-
-    function toggleBuzzer() {
-        buzzerOn = !buzzerOn;
-        sendCmd(buzzerOn ? 'BUZZER_ON' : 'BUZZER_OFF');
-        document.getElementById('toggleBuzzer').className = 'toggle' + (buzzerOn ? ' on' : '');
-        const dot = document.getElementById('buzzerDot');
-        dot.style.background = buzzerOn ? '#f59e0b' : 'transparent';
-        dot.style.boxShadow = buzzerOn ? '0 0 12px #f59e0b88' : 'none';
     }
 
     function addLog(type, message) {

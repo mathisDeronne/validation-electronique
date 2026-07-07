@@ -14,6 +14,8 @@
 #include "buzzermelody.hpp"
 #include "blemanager.hpp"
 #include "SPIManager.hpp"
+#include "I2CBus.hpp"
+#include "INA237.hpp"
 
 static const char *TAG_MAIN = "MAIN";
 static const char *TAG_ADC  = "ADC";
@@ -112,6 +114,28 @@ extern "C" void app_main(void)
     }
 
     //--------------------------------------------------------------
+    // INA237 I2C INIT : mesure tension / courant / puissance
+    //--------------------------------------------------------------
+    I2CBus bus;
+    bool ina_ok = false;
+
+    bus.begin(21, 22, 400000);
+
+    INA237 ina(bus);
+
+    if (!ina.begin())
+    {
+        ESP_LOGE(TAG_MAIN, "INA237 non detecte");
+        ina_ok = false;
+    }
+    else
+    {
+        ESP_LOGI(TAG_MAIN, "INA237 initialise");
+        ina.setCalibration(10000, 2000); // Calibration provisoire depuis mainINA.cpp
+        ina_ok = true;
+    }
+
+    //--------------------------------------------------------------
     // VARIABLES
     //--------------------------------------------------------------
     int adc1 = 0;
@@ -120,6 +144,9 @@ extern "C" void app_main(void)
     float temp1 = -999.0f;
     float temp2 = -999.0f;
     float spiTemp = -999.0f;
+    float inaBusVoltage = -999.0f;
+    float inaCurrent = -999.0f;
+    float inaPower = -999.0f;
 
     uint32_t loopCounter = 0;
 
@@ -234,6 +261,22 @@ extern "C" void app_main(void)
         }
 
         //----------------------------------------------------------
+        // INA237 I2C READ
+        //----------------------------------------------------------
+        if (ina_ok)
+        {
+            inaBusVoltage = ina.readBusVoltage();
+            inaCurrent = ina.readCurrent();
+            inaPower = ina.readPower();
+        }
+        else
+        {
+            inaBusVoltage = -999.0f;
+            inaCurrent = -999.0f;
+            inaPower = -999.0f;
+        }
+
+        //----------------------------------------------------------
         // AFFICHAGE SERIE
         //----------------------------------------------------------
         printf("\n-----------------------------\n");
@@ -263,6 +306,17 @@ extern "C" void app_main(void)
         else
         {
             printf("TMP126 (SPI)  : Erreur\n");
+        }
+
+        if (ina_ok)
+        {
+            printf("INA237 Bus    : %.3f V\n", inaBusVoltage);
+            printf("INA237 Current: %.3f A\n", inaCurrent);
+            printf("INA237 Power  : %.3f W\n", inaPower);
+        }
+        else
+        {
+            printf("INA237        : Erreur\n");
         }
 
         printf("BLE connected : %s\n", blemanager::isConnected() ? "YES" : "NO");
