@@ -18,7 +18,7 @@
         .connect-btn:hover { background: #2563eb; }
         .connect-btn:disabled { background: #374151; cursor: not-allowed; }
         .connect-btn.connected { background: #22c55e; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 800px; margin: 0 auto; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 900px; margin: 0 auto; }
         .card { background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 20px; }
         .card h2 { font-size: 14px; color: #71717a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
         .led-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -36,22 +36,31 @@
         .alarm-btn { padding: 12px; border-radius: 8px; border: 1px solid #374151; background: #1f1f23; color: #e4e4e7; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .alarm-btn:hover { background: #27272a; border-color: #f59e0b; color: #f59e0b; }
         .alarm-btn:active { transform: scale(0.96); }
-        .temp-card { text-align: center; padding: 16px; background: #1f1f23; border-radius: 8px; margin-bottom: 10px; }
-        .temp-value { font-size: 32px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+        .temp-card { text-align: center; padding: 14px; background: #1f1f23; border-radius: 8px; margin-bottom: 10px; }
+        .temp-value { font-size: 28px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
         .temp-value.warning { color: #f59e0b; }
         .temp-value.critical { color: #ef4444; }
         .temp-value.error { color: #ef4444; }
+        .temp-label { font-size: 11px; color: #71717a; margin-top: 4px; }
 
-        /* INA237 styles */
+        /* INA237 */
         .ina-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .ina-cell { text-align: center; padding: 14px 10px; background: #1f1f23; border-radius: 8px; }
-        .ina-value { font-size: 24px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
-        .ina-unit { font-size: 14px; color: #71717a; font-weight: 400; }
+        .ina-value { font-size: 22px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+        .ina-unit { font-size: 13px; color: #71717a; font-weight: 400; }
         .ina-label { font-size: 11px; color: #52525b; margin-top: 4px; }
-        .ina-cell.highlight .ina-value { color: #818cf8; }
+        .ina-cell.current .ina-value { color: #818cf8; }
         .ina-cell.power .ina-value { color: #f59e0b; }
 
-        .log-card { grid-column: 1 / -1; }
+        /* Alarme status */
+        .alarm-status { text-align: center; padding: 14px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; font-weight: 600; letter-spacing: 0.5px; }
+        .alarm-status.ok { background: #052e16; color: #22c55e; border: 1px solid #166534; }
+        .alarm-status.warning { background: #451a03; color: #f59e0b; border: 1px solid #92400e; animation: pulse-warn 1.5s ease-in-out infinite; }
+        .alarm-status.critical { background: #450a0a; color: #ef4444; border: 1px solid #991b1b; animation: pulse-crit 0.8s ease-in-out infinite; }
+        @keyframes pulse-warn { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @keyframes pulse-crit { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .full-width { grid-column: 1 / -1; }
         .log-area { background: #0f0f12; border: 1px solid #27272a; border-radius: 8px; padding: 12px; height: 180px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; color: #a1a1aa; }
         .log-area div { margin-bottom: 2px; }
         .log-area .rx { color: #22c55e; }
@@ -64,7 +73,7 @@
 <body>
 <div class="header">
     <h1>🔧 Ventec Control Panel</h1>
-    <p class="subtitle">ESP32-PICO-D4 — Groupe 5</p>
+    <p class="subtitle">ESP32-PICO-D4 — Groupe 5 — Monitoring AGV</p>
 </div>
 
 <div class="status-bar">
@@ -75,6 +84,13 @@
 <button class="connect-btn" id="connectBtn" onclick="toggleConnection()">Connecter Bluetooth</button>
 
 <div class="grid">
+
+    <!-- STATUT ALARME -->
+    <div class="card full-width">
+        <div class="alarm-status ok" id="alarmStatus">✅ Système OK — Aucune alarme</div>
+    </div>
+
+    <!-- LED -->
     <div class="card">
         <h2>💡 Contrôle LED</h2>
         <div class="led-row">
@@ -87,8 +103,9 @@
         </div>
     </div>
 
+    <!-- ALARMES SONORES -->
     <div class="card">
-        <h2>🔊 Alarmes</h2>
+        <h2>🔊 Alarmes sonores</h2>
         <div class="alarm-grid">
             <button class="alarm-btn" onclick="sendCmd('ALARM_1')">🔔 Triple Beep</button>
             <button class="alarm-btn" onclick="sendCmd('ALARM_2')">🚨 Sirène</button>
@@ -97,25 +114,23 @@
         </div>
     </div>
 
+    <!-- TEMPÉRATURES -->
     <div class="card">
         <h2>🌡️ Températures</h2>
         <div class="temp-card"><div class="temp-value" id="tempNtc1">--.-</div><div class="temp-label">NTC1 (GPIO25) — PCB Zone 1</div></div>
         <div class="temp-card"><div class="temp-value" id="tempNtc2">--.-</div><div class="temp-label">NTC2 (GPIO26) — PCB Zone 2</div></div>
-        <div class="temp-card"><div class="temp-value" id="tempTmp126">--.-</div><div class="temp-label">TMP126 (SPI) — Ambiante</div></div>
+        <div class="temp-card"><div class="temp-value" id="tempTmp126">--.-</div><div class="temp-label">TMP126 (SPI) — Ambiante châssis</div></div>
     </div>
 
+    <!-- INA237 -->
     <div class="card">
-        <h2>⚡ INA237 — Moniteur de puissance</h2>
+        <h2>⚡ INA237 — Monitoring batterie</h2>
         <div class="ina-grid">
             <div class="ina-cell">
                 <div class="ina-value" id="inaVbus">--.-<span class="ina-unit"> V</span></div>
                 <div class="ina-label">Tension Bus</div>
             </div>
-            <div class="ina-cell">
-                <div class="ina-value" id="inaVshunt">--.-<span class="ina-unit"> mV</span></div>
-                <div class="ina-label">Tension Shunt</div>
-            </div>
-            <div class="ina-cell highlight">
+            <div class="ina-cell current">
                 <div class="ina-value" id="inaCurrent">--.-<span class="ina-unit"> A</span></div>
                 <div class="ina-label">Courant</div>
             </div>
@@ -124,22 +139,52 @@
                 <div class="ina-label">Puissance</div>
             </div>
         </div>
-        <div class="ina-cell" style="margin-top:10px;">
-            <div class="ina-value" id="inaDieTemp">--.-<span class="ina-unit"> °C</span></div>
-            <div class="ina-label">Température Die INA237</div>
-        </div>
     </div>
 
-    <div class="card log-card">
+    <!-- CONFIGURATION SEUILS ALARME (EXF-23) -->
+    <div class="card full-width">
+        <h2>⚙️ Seuils d'alarme — Configuration</h2>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+            <div>
+                <label style="font-size:12px; color:#a1a1aa; display:block; margin-bottom:4px;">⚡ Courant Warning (A)</label>
+                <input type="number" id="threshCW" value="15" step="0.5" min="0" max="30"
+                    style="width:100%; padding:8px; border-radius:6px; border:1px solid #374151; background:#0f0f12; color:#f59e0b; font-size:15px; outline:none;">
+            </div>
+            <div>
+                <label style="font-size:12px; color:#a1a1aa; display:block; margin-bottom:4px;">⚡ Courant Critique (A)</label>
+                <input type="number" id="threshCC" value="20" step="0.5" min="0" max="30"
+                    style="width:100%; padding:8px; border-radius:6px; border:1px solid #374151; background:#0f0f12; color:#ef4444; font-size:15px; outline:none;">
+            </div>
+            <div>
+                <label style="font-size:12px; color:#a1a1aa; display:block; margin-bottom:4px;">🌡️ Température Warning (°C)</label>
+                <input type="number" id="threshTW" value="60" step="1" min="0" max="120"
+                    style="width:100%; padding:8px; border-radius:6px; border:1px solid #374151; background:#0f0f12; color:#f59e0b; font-size:15px; outline:none;">
+            </div>
+            <div>
+                <label style="font-size:12px; color:#a1a1aa; display:block; margin-bottom:4px;">🌡️ Température Critique (°C)</label>
+                <input type="number" id="threshTC" value="75" step="1" min="0" max="120"
+                    style="width:100%; padding:8px; border-radius:6px; border:1px solid #374151; background:#0f0f12; color:#ef4444; font-size:15px; outline:none;">
+            </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button onclick="sendThresholds()" style="flex:1; padding:10px; border-radius:8px; background:#6366f1; color:white; border:none; cursor:pointer; font-size:14px; font-weight:600;">📤 Appliquer les seuils</button>
+            <button onclick="sendCmd('GET_THRESH')" style="padding:10px 16px; border-radius:8px; background:#374151; color:#a1a1aa; border:1px solid #52525b; cursor:pointer; font-size:13px;">🔄 Lire</button>
+        </div>
+        <div style="font-size:11px; color:#52525b; margin-top:8px;">Les seuils sont envoyés à l'ESP32 et appliqués immédiatement sans reprogrammation (EXF-23).</div>
+    </div>
+
+    <!-- COMMANDE MANUELLE + LOGS -->
+    <div class="card full-width">
         <h2>⌨️ Commande manuelle</h2>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
-            <input type="text" id="cmdInput" placeholder="Ex: LED_GREEN_ON" style="flex:1; padding:10px; border-radius:8px; border:1px solid #374151; background:#0f0f12; color:#fff; font-size:14px; outline:none;">
+            <input type="text" id="cmdInput" placeholder="Ex: LED_GREEN_ON, GET_LOGS" style="flex:1; padding:10px; border-radius:8px; border:1px solid #374151; background:#0f0f12; color:#fff; font-size:14px; outline:none;">
             <button onclick="sendManualCmd()" style="padding:10px 20px; border-radius:8px; background:#3b82f6; color:white; border:none; cursor:pointer; font-size:14px;">Envoyer</button>
+            <button onclick="sendCmd('GET_LOGS')" style="padding:10px 16px; border-radius:8px; background:#6366f1; color:white; border:none; cursor:pointer; font-size:14px;" title="Récupérer les derniers logs">📋 Logs</button>
         </div>
-        <div style="font-size:12px; color:#52525b;">Commandes : LED_GREEN_ON/OFF, LED_RED_ON/OFF, ALARM_1..4</div>
+        <div style="font-size:12px; color:#52525b;">Commandes : LED_GREEN_ON/OFF, LED_RED_ON/OFF, BUZZER_ON/OFF, ALARM_1..4, GET_LOGS</div>
     </div>
 
-    <div class="card log-card">
+    <div class="card full-width">
         <h2>📋 Logs</h2>
         <div class="log-area" id="logArea"></div>
     </div>
@@ -150,14 +195,10 @@
     const RX_UUID      = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
     const TX_UUID      = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
-    let device = null;
-    let server = null;
-    let rxCharacteristic = null;
-    let txCharacteristic = null;
+    let device = null, server = null;
+    let rxCharacteristic = null, txCharacteristic = null;
     let isConnected = false;
-
-    let ledGreenOn = false;
-    let ledRedOn = false;
+    let ledGreenOn = false, ledRedOn = false;
 
     async function toggleConnection() {
         if (isConnected) disconnect();
@@ -167,19 +208,12 @@
     async function connect() {
         const btn = document.getElementById('connectBtn');
         btn.disabled = true;
-
         try {
-            if (!navigator.bluetooth) {
-                throw new Error('Web Bluetooth non disponible. Utilise Chrome ou Edge.');
-            }
-
+            if (!navigator.bluetooth) throw new Error('Web Bluetooth non disponible. Utilise Chrome ou Edge.');
             addLog('info', 'Recherche Bluetooth...');
 
             device = await navigator.bluetooth.requestDevice({
-                filters: [
-                    { name: 'Groupe 5' },
-                    { name: 'groupe 5' }
-                ],
+                filters: [{ name: 'Groupe 5' }, { name: 'groupe 5' }],
                 optionalServices: [SERVICE_UUID]
             });
 
@@ -188,23 +222,15 @@
 
             server = await device.gatt.connect();
             addLog('info', 'GATT connecté');
-
             await sleep(500);
 
-            if (!device.gatt.connected) {
-                throw new Error('ESP32 déconnecté juste après la connexion GATT');
-            }
+            if (!device.gatt.connected) throw new Error('ESP32 déconnecté après GATT');
 
             const service = await server.getPrimaryService(SERVICE_UUID);
-            addLog('info', 'Service UART trouvé');
-
             rxCharacteristic = await service.getCharacteristic(RX_UUID);
-            addLog('info', 'Caractéristique RX prête');
-
             txCharacteristic = await service.getCharacteristic(TX_UUID);
             await txCharacteristic.startNotifications();
             txCharacteristic.addEventListener('characteristicvaluechanged', onDataReceived);
-            addLog('info', 'Notifications TX activées');
 
             setConnected(true);
             addLog('rx', '✓ Connecté à ' + (device.name || 'ESP32'));
@@ -218,28 +244,16 @@
 
     function disconnect(showLog = true) {
         try {
-            if (txCharacteristic) {
-                txCharacteristic.removeEventListener('characteristicvaluechanged', onDataReceived);
-            }
-            if (device && device.gatt && device.gatt.connected) {
-                device.gatt.disconnect();
-            }
-        } catch (e) {
-            addLog('err', 'Erreur déconnexion : ' + e.message);
-        }
-
-        rxCharacteristic = null;
-        txCharacteristic = null;
-        server = null;
+            if (txCharacteristic) txCharacteristic.removeEventListener('characteristicvaluechanged', onDataReceived);
+            if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+        } catch (e) { addLog('err', 'Erreur déconnexion : ' + e.message); }
+        rxCharacteristic = null; txCharacteristic = null; server = null;
         setConnected(false);
-
         if (showLog) addLog('info', 'Déconnecté manuellement');
     }
 
     function onDisconnected() {
-        rxCharacteristic = null;
-        txCharacteristic = null;
-        server = null;
+        rxCharacteristic = null; txCharacteristic = null; server = null;
         setConnected(false);
         addLog('err', 'Déconnecté');
     }
@@ -254,33 +268,22 @@
     }
 
     async function sendCmd(cmd) {
-        if (!isConnected || !rxCharacteristic) {
-            addLog('err', 'Non connecté');
-            return;
-        }
-
+        if (!isConnected || !rxCharacteristic) { addLog('err', 'Non connecté'); return; }
         try {
-            const encoder = new TextEncoder();
-            await rxCharacteristic.writeValueWithoutResponse(encoder.encode(cmd));
+            await rxCharacteristic.writeValueWithoutResponse(new TextEncoder().encode(cmd));
             addLog('tx', '→ ' + cmd);
         } catch (err) {
             try {
-                const encoder = new TextEncoder();
-                await rxCharacteristic.writeValue(encoder.encode(cmd));
+                await rxCharacteristic.writeValue(new TextEncoder().encode(cmd));
                 addLog('tx', '→ ' + cmd);
-            } catch (err2) {
-                addLog('err', 'Envoi échoué : ' + err2.message);
-            }
+            } catch (err2) { addLog('err', 'Envoi échoué : ' + err2.message); }
         }
     }
 
     function sendManualCmd() {
         const input = document.getElementById('cmdInput');
         const cmd = input.value.trim();
-        if (cmd) {
-            sendCmd(cmd);
-            input.value = '';
-        }
+        if (cmd) { sendCmd(cmd); input.value = ''; }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -290,78 +293,81 @@
     });
 
     function onDataReceived(event) {
-        const decoder = new TextDecoder();
-        const data = decoder.decode(event.target.value);
+        const data = new TextDecoder().decode(event.target.value);
         addLog('rx', '← ' + data);
+
+        // Logs reçus via GET_LOGS
+        if (data.startsWith('LOG=') || data === 'LOGS=EMPTY') return;
+
+        // Seuils reçus via GET_THRESH : THRESH=15.0,20.0,60.0,75.0
+        if (data.startsWith('THRESH=')) {
+            const vals = data.substring(7).split(',');
+            if (vals.length === 4) {
+                document.getElementById('threshCW').value = vals[0];
+                document.getElementById('threshCC').value = vals[1];
+                document.getElementById('threshTW').value = vals[2];
+                document.getElementById('threshTC').value = vals[3];
+                addLog('info', 'Seuils actuels reçus de l\'ESP32');
+            }
+            return;
+        }
 
         const parts = data.split(';');
         parts.forEach(part => {
-            const [key, value] = part.split('=');
-            if (!key || value === undefined) return;
+            const eq = part.indexOf('=');
+            if (eq < 0) return;
+            const key = part.substring(0, eq);
+            const value = part.substring(eq + 1);
 
             // --- Températures ---
-            let tempElementId = null;
-            if (key === 'NTC1' || key === 'TEMP1') tempElementId = 'tempNtc1';
-            if (key === 'NTC2' || key === 'TEMP2') tempElementId = 'tempNtc2';
-            if (key === 'TMP126') tempElementId = 'tempTmp126';
+            let tempId = null;
+            if (key === 'NTC1' || key === 'TEMP1') tempId = 'tempNtc1';
+            if (key === 'NTC2' || key === 'TEMP2') tempId = 'tempNtc2';
+            if (key === 'TMP126') tempId = 'tempTmp126';
 
-            if (tempElementId) {
-                const el = document.getElementById(tempElementId);
-                if (value === 'ERR') {
-                    el.textContent = 'ERR';
-                    el.className = 'temp-value error';
-                    return;
-                }
-                const temp = parseFloat(value);
-                if (isNaN(temp)) return;
-                el.textContent = temp.toFixed(1) + '°C';
+            if (tempId) {
+                const el = document.getElementById(tempId);
+                if (value === 'ERR') { el.textContent = 'ERR'; el.className = 'temp-value error'; return; }
+                const t = parseFloat(value);
+                if (isNaN(t)) return;
+                el.textContent = t.toFixed(1) + '°C';
                 el.className = 'temp-value';
-                if (temp >= 75) el.className += ' critical';
-                else if (temp >= 60) el.className += ' warning';
+                if (t >= 75) el.className += ' critical';
+                else if (t >= 60) el.className += ' warning';
                 return;
             }
 
             // --- INA237 ---
-            let inaElementId = null;
-            let inaUnit = '';
-            let inaDecimals = 2;
+            const inaMap = {
+                'VBUS':    { id: 'inaVbus',    unit: ' V',  dec: 2, mult: 1 },
+                'CURRENT': { id: 'inaCurrent', unit: ' A',  dec: 3, mult: 1 },
+                'POWER':   { id: 'inaPower',   unit: ' W',  dec: 3, mult: 1 }
+            };
 
-            if (key === 'VBUS') {
-                inaElementId = 'inaVbus';
-                inaUnit = ' V';
-                inaDecimals = 2;
-            } else if (key === 'VSHUNT') {
-                inaElementId = 'inaVshunt';
-                inaUnit = ' mV';
-                inaDecimals = 3;
-            } else if (key === 'CURRENT') {
-                inaElementId = 'inaCurrent';
-                inaUnit = ' A';
-                inaDecimals = 3;
-            } else if (key === 'POWER') {
-                inaElementId = 'inaPower';
-                inaUnit = ' W';
-                inaDecimals = 3;
-            } else if (key === 'DIETEMP') {
-                inaElementId = 'inaDieTemp';
-                inaUnit = ' °C';
-                inaDecimals = 1;
+            if (inaMap[key]) {
+                const cfg = inaMap[key];
+                const el = document.getElementById(cfg.id);
+                if (value === 'ERR') { el.innerHTML = 'ERR'; return; }
+                const v = parseFloat(value) * cfg.mult;
+                if (isNaN(v)) return;
+                el.innerHTML = v.toFixed(cfg.dec) + '<span class="ina-unit">' + cfg.unit + '</span>';
+                return;
             }
 
-            if (inaElementId) {
-                const el = document.getElementById(inaElementId);
-                if (value === 'ERR') {
-                    el.innerHTML = 'ERR';
-                    return;
+            // --- Alarme ---
+            if (key === 'ALARM') {
+                const level = parseInt(value);
+                const el = document.getElementById('alarmStatus');
+                if (level === 2) {
+                    el.textContent = '🚨 ALARME CRITIQUE — Courant ou température hors limites';
+                    el.className = 'alarm-status critical';
+                } else if (level === 1) {
+                    el.textContent = '⚠️ WARNING — Seuil d\'avertissement atteint';
+                    el.className = 'alarm-status warning';
+                } else {
+                    el.textContent = '✅ Système OK — Aucune alarme';
+                    el.className = 'alarm-status ok';
                 }
-                const val = parseFloat(value);
-                if (isNaN(val)) return;
-
-                // Pour VSHUNT, convertir V → mV pour l'affichage
-                let displayVal = val;
-                if (key === 'VSHUNT') displayVal = val * 1000;
-
-                el.innerHTML = displayVal.toFixed(inaDecimals) + '<span class="ina-unit">' + inaUnit + '</span>';
             }
         });
     }
@@ -380,6 +386,25 @@
         }
     }
 
+    // === CONFIGURATION SEUILS (EXF-23) ===
+    function sendThresholds() {
+        const cw = parseFloat(document.getElementById('threshCW').value);
+        const cc = parseFloat(document.getElementById('threshCC').value);
+        const tw = parseFloat(document.getElementById('threshTW').value);
+        const tc = parseFloat(document.getElementById('threshTC').value);
+
+        if (isNaN(cw) || isNaN(cc) || isNaN(tw) || isNaN(tc)) {
+            addLog('err', 'Seuils invalides'); return;
+        }
+        if (cw >= cc) { addLog('err', 'Courant warning doit être < critique'); return; }
+        if (tw >= tc) { addLog('err', 'Temp warning doit être < critique'); return; }
+
+        // Envoi des 4 seuils en une seule commande
+        const cmd = `SET_THRESH=${cw},${cc},${tw},${tc}`;
+        sendCmd(cmd);
+        addLog('info', `Seuils envoyés : I_warn=${cw}A I_crit=${cc}A T_warn=${tw}°C T_crit=${tc}°C`);
+    }
+
     function addLog(type, message) {
         const area = document.getElementById('logArea');
         const time = new Date().toLocaleTimeString('fr-FR');
@@ -390,9 +415,7 @@
         area.scrollTop = area.scrollHeight;
     }
 
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 </script>
 </body>
 </html>
